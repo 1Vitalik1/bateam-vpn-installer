@@ -1,0 +1,86 @@
+##############################################
+# DNSCrypt-Proxy Configuration
+##############################################
+
+# Адрес для прослушивания
+listen_addresses = ['0.0.0.0:5353']
+
+# Максимальное количество одновременных клиентов
+max_clients = 250
+
+# IPv4 серверы (обязательно)
+ipv4_servers = true
+
+# IPv6 серверы (опционально)
+ipv6_servers = false
+
+# DNS-over-HTTPS серверы
+doh_servers = true
+
+# Требовать DNSCrypt
+require_dnssec = false
+require_nolog = true
+require_nofilter = true
+
+# Использовать только серверы без логов
+force_tcp = false
+
+# Timeout для запросов (мс)
+timeout = 5000
+
+# Keepalive для HTTP(S) соединений
+keepalive = 30
+
+# Логирование
+log_level = 2
+use_syslog = false
+log_file = '/var/log/dnscrypt-proxy/dnscrypt-proxy.log'
+
+# Кэширование
+cache = true
+cache_size = 4096
+cache_min_ttl = 2400
+cache_max_ttl = 86400
+cache_neg_min_ttl = 60
+cache_neg_max_ttl = 600
+
+# Серверы для использования
+server_names = ['cloudflare', 'google', 'quad9-dnscrypt-ip4-nofilter-pri']
+
+# Fallback resolver
+fallback_resolvers = ['1.1.1.1:53', '8.8.8.8:53']
+ignore_system_dns = true
+
+# Bootstrap resolvers для резолва имен DNS серверов
+bootstrap_resolvers = ['1.1.1.1:53', '8.8.8.8:53']
+
+# Блокировка рекламы и трекеров (опционально)
+[blocked_names]
+  blocked_names_file = '/etc/dnscrypt-proxy/blocked-names.txt'
+  log_file = '/var/log/dnscrypt-proxy/blocked-names.log'
+
+# Источники списков DNS серверов
+[sources]
+  [sources.'public-resolvers']
+    urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md', 'https://download.dnscrypt.info/resolvers-list/v3/public-resolvers.md']
+    cache_file = '/var/cache/dnscrypt-proxy/public-resolvers.md'
+    minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+    refresh_delay = 72
+    prefix = ''
+
+  [sources.'relays']
+    urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/relays.md', 'https://download.dnscrypt.info/resolvers-list/v3/relays.md']
+    cache_file = '/var/cache/dnscrypt-proxy/relays.md'
+    minisign_key = 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+    refresh_delay = 72
+    prefix = ''
+
+# Query logging (для отладки)
+[query_log]
+  file = '/var/log/dnscrypt-proxy/query.log'
+  format = 'tsv'
+
+# Nx logging
+[nx_log]
+  file = '/var/log/dnscrypt-proxy/nx.log'
+  format = 'tsv'
