@@ -1,0 +1,229 @@
+version: '3.8'
+
+services:
+  # Основной VPN сервер с обфускацией
+  openvpn:
+    build:
+      context: ./openvpn
+      dockerfile: Dockerfile
+    container_name: openvpn-server
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    ports:
+      - "443:443/tcp"      # OpenVPN через TCP (маскировка под HTTPS)
+      - "1194:1194/udp"    # Стандартный UDP порт (опционально)
+      - "8443:8443/tcp"    # Stunnel SSL wrapper
+    volumes:
+      - ./openvpn/config:/etc/openvpn
+      - ./openvpn/certs:/etc/openvpn/pki
+      - openvpn-data:/var/log/openvpn
+    environment:
+      - OPENVPN_ENABLE_OBFUSCATION=true
+      - OPENVPN_SCRAMBLE_PASSWORD=MySecurePassword123
+      - OPENVPN_PROTO=tcp
+      - OPENVPN_PORT=1194
+      - SERVER_SUBNET=10.8.0.0
+      - DNS_SERVER_1=10.8.0.1
+      - DNS_SERVER_2=1.1.1.1
+    networks:
+      vpn_network:
+        ipv4_address: 172.20.0.10
+    restart: unless-stopped
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.forwarding=1
+    depends_on:
+      - dns-crypt
+
+  # DPI обход (zapret - аналог GoodbyeDPI для Linux)
+  dpi-bypass:
+    build:
+      context: ./dpi-bypass
+      dockerfile: Dockerfile
+    container_name: dpi-bypass
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    network_mode: "service:openvpn"
+    privileged: true
+    environment:
+      - MODE=tpws
+      - TPWS_ARGS=--split-pos=2 --split-http-req=method --disorder --oob
+      - NFQWS_ARGS=--dpi-desync=split2 --dpi-desync-ttl=5
+      - ENABLE_IPV6=false
+    volumes:
+      - ./dpi-bypass/config:/opt/zapret/config
+      - ./dpi-bypass/lists:/opt/zapret/lists
+    restart: unless-stopped
+    depends_on:
+      - openvpn
+
+  # Stunnel для дополнительной SSL обертки
+  stunnel:
+    build:
+      context: ./stunnel
+      dockerfile: Dockerfile
+    container_name: stunnel-wrapper
+    ports:
+      - "4443:4443/tcp"    # Альтернативный SSL порт
+    volumes:
+      - ./stunnel/config:/etc/stunnel
+      - ./stunnel/certs:/etc/stunnel/certs
+    networks:
+      vpn_network:
+        ipv4_address: 172.20.0.11
+    restart: unless-stopped
+    depends_on:
+      - openvpn
+
+  # DNSCrypt для шифрованного DNS
+  dns-crypt:
+    build:
+      context: ./dnscrypt
+      dockerfile: Dockerfile
+    container_name: dnscrypt-proxy
+    ports:
+      - "53:5353/udp"
+      - "53:5353/tcp"
+    volumes:
+      - ./dnscrypt/config:/etc/dnscrypt-proxy
+    networks:
+      vpn_network:
+        ipv4_address: 172.20.0.12
+    restart: unless-stopped
+    environment:
+      - DNSCRYPT_LISTEN_ADDRESS=0.0.0.0:5353
+      - DNSCRYPT_SERVER_NAMES=cloudflare,google
+
+  # Shadowsocks для дополнительного прокси
+  shadowsocks:
+    build:
+      context: ./shadowsocks
+      dockerfile: Dockerfile
+    container_name: shadowsocks-server
+    ports:
+      - "8388:8388/tcp"
+      - "8388:8388/udp"
+    volumes:
+      - ./shadowsocks/config:/etc/shadowsocks
+    networks:
+      vpn_network:
+        ipv4_address: 172.20.0.13
+    restart: unless-stopped
+    environment:
+      - SS_SERVER_ADDR=0.0.0.0
+      - SS_SERVER_PORT=8388
+      - SS_PASSWORD=YourStrongPassword456
+      - SS_METHOD=chacha20-ietf-poly1305
+      - SS_TIMEOUT=300
+
+  # V2Ray для продвинутой обфускации
+  v2ray:
+    build:
+      context: ./v2ray
+      dockerfile: Dockerfile
+    container_name: v2ray-server
+    ports:
+      - "10086:10086/tcp"
+      - "10087:10087/tcp"   # WebSocket порт
+    volumes:
+      - ./v2ray/config:/etc/v2ray
+    networks:
+      vpn_network:
+        ipv4_address: 172.20.0.14
+    restart: unless-stopped
+    environment:
+      - V2RAY_VMESS_PORT=10086
+      - V2RAY_WS_PORT=10087
+      - V2RAY_UUID=generated-uuid-here
+      - V2RAY_ALTERID=0
+
+  # Web UI для управления
+  webui:
+    build:
+      context: ./webui
+      dockerfile: Dockerfile
+    container_name: vpn-webui
+    ports:
+      - "8080:8080/tcp"
+    volumes:
+      - ./webui/app:/app
+      - ./openvpn/certs:/app/certs:ro
+      - ./openvpn/config:/app/openvpn-config:ro
+      - webui-data:/app/data
+    networks:
+      vpn_network:
+        ipv4_address: 172.20.0.15
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=change-this-secret-key
+      - ADMIN_PASSWORD=admin123
+    depends_on:
+      - openvpn
+      - redis
+
+  # Redis для кэширования и сессий
+  redis:
+    image: redis:7-alpine
+    container_name: vpn-redis
+    volumes:
+      - redis-data:/data
+    networks:
+      vpn_network:
+        ipv4_address: 172.20.0.16
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # Monitoring с Prometheus (опционально)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: vpn-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    networks:
+      vpn_network:
+        ipv4_address: 172.20.0.17
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  # Grafana для визуализации
+  grafana:
+    image: grafana/grafana:latest
+    container_name: vpn-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./monitoring/grafana:/etc/grafana
+      - grafana-data:/var/lib/grafana
+    networks:
+      vpn_network:
+        ipv4_address: 172.20.0.18
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-clock-panel
+    depends_on:
+      - prometheus
+
+networks:
+  vpn_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+
+volumes:
+  openvpn-data:
+  webui-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
