@@ -1,34 +1,28 @@
-FROM alpine:3.19
+FROM ubuntu:22.04
+LABEL description="Stunnel SSL/TLS wrapper"
+ENV DEBIAN_FRONTEND=noninteractive
 
-LABEL description="Stunnel SSL wrapper for OpenVPN obfuscation"
-
-# Установка stunnel и необходимых утилит
-RUN apk add --no-cache \
-    stunnel \
+RUN apt-get update && apt-get install -y \
+    stunnel4 \
     openssl \
-    bash \
-    curl
+ && rm -rf /var/lib/apt/lists/*
 
-# Создание директорий
-RUN mkdir -p \
-    /etc/stunnel/certs \
-    /var/run/stunnel \
-    /var/log/stunnel
+# Создаём директорию заранее
+RUN mkdir -p /etc/stunnel/certs
 
-# Копирование конфигурационных файлов
+# Копируем скрипт
+COPY scripts/generate-cert.sh /usr/local/bin/generate-cert.sh
+
+# Даём права и конвертируем окончания строк (на случай Windows)
+RUN chmod +x /usr/local/bin/generate-cert.sh \
+ && sed -i 's/\r$//' /usr/local/bin/generate-cert.sh
+
+# Запускаем через bash явно
+RUN /bin/bash /usr/local/bin/generate-cert.sh
+
+# Копируем конфигурацию stunnel
 COPY config/stunnel.conf /etc/stunnel/
-COPY scripts/entrypoint.sh /usr/local/bin/
-COPY scripts/generate-cert.sh /usr/local/bin/
-
-RUN chmod +x /usr/local/bin/*.sh
-
-# Генерация самоподписанного сертификата при первом запуске
-RUN /usr/local/bin/generate-cert.sh
 
 EXPOSE 4443
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD pidof stunnel || exit 1
-
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["stunnel", "/etc/stunnel/stunnel.conf"]

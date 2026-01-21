@@ -1,45 +1,27 @@
-FROM alpine:3.19
+FROM ubuntu:22.04
+LABEL description="V2Ray proxy"
+ENV DEBIAN_FRONTEND=noninteractive
 
-LABEL description="V2Ray proxy with WebSocket and TLS support"
-
-ENV V2RAY_VERSION=5.12.1
-
-# Установка зависимостей
-RUN apk add --no-cache \
-    bash \
+RUN apt-get update && apt-get install -y \
     curl \
     wget \
     unzip \
     ca-certificates \
-    tzdata
+    tzdata \
+    jq \
+ && rm -rf /var/lib/apt/lists/*
 
-# Скачивание и установка V2Ray
-RUN mkdir -p /tmp/v2ray && \
-    cd /tmp/v2ray && \
-    wget https://github.com/v2fly/v2ray-core/releases/download/v${V2RAY_VERSION}/v2ray-linux-64.zip && \
-    unzip v2ray-linux-64.zip && \
-    mkdir -p /usr/local/bin /usr/local/share/v2ray && \
-    install -m 755 v2ray /usr/local/bin/ && \
-    install -m 755 v2ctl /usr/local/bin/ && \
-    install -m 644 geoip.dat /usr/local/share/v2ray/ && \
-    install -m 644 geosite.dat /usr/local/share/v2ray/ && \
-    cd / && \
-    rm -rf /tmp/v2ray
+RUN mkdir -p /tmp/v2ray \
+ && cd /tmp/v2ray \
+ && LATEST_VERSION=$(curl -s https://api.github.com/repos/v2fly/v2ray-core/releases/latest | jq -r '.tag_name') \
+ && echo "Downloading V2Ray version: ${LATEST_VERSION}" \
+ && wget https://github.com/v2fly/v2ray-core/releases/download/${LATEST_VERSION}/v2ray-linux-64.zip \
+ && unzip v2ray-linux-64.zip \
+ && install -m 755 v2ray /usr/local/bin/v2ray \
+ && mkdir -p /usr/local/share/v2ray \
+ && install -m 644 geoip.dat /usr/local/share/v2ray/ \
+ && install -m 644 geosite.dat /usr/local/share/v2ray/ \
+ && rm -rf /tmp/v2ray
 
-# Создание директорий
-RUN mkdir -p /etc/v2ray /var/log/v2ray
-
-# Копирование конфигурации
-COPY config/config.json /etc/v2ray/
-COPY scripts/entrypoint.sh /usr/local/bin/
-COPY scripts/generate-uuid.sh /usr/local/bin/
-
-RUN chmod +x /usr/local/bin/*.sh
-
-EXPOSE 10086/tcp 10087/tcp
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD pidof v2ray || exit 1
-
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["v2ray", "run", "-c", "/etc/v2ray/config.json"]
+ENTRYPOINT ["/usr/local/bin/v2ray"]
+CMD ["run"]
