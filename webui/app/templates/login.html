@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Login - VPN Management{% endblock %}
+
+{% block content %}
+<div style="max-width: 400px; margin: 50px auto;">
+    <div style="text-align: center; margin-bottom: 30px;">
+        <h2 style="color: #667eea; font-size: 32px; margin-bottom: 10px;">🔐 VPN Management</h2>
+        <p style="color: #666;">Sign in to manage your VPN server</p>
+    </div>
+    
+    <div class="card">
+        <form method="POST" action="/login">
+            <div>
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autofocus>
+            </div>
+            
+            <div>
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            
+            <button type="submit" class="btn" style="width: 100%; padding: 12px;">
+                Sign In
+            </button>
+        </form>
+    </div>
+    
+    <div style="text-align: center; margin-top: 20px; color: #666; font-size: 14px;">
+        <p>Default credentials: admin / admin123</p>
+        <p style="color: #e74c3c; margin-top: 10px;">⚠️ Change password after first login!</p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Clients - VPN Management{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+    <h2 style="color: #667eea; margin: 0;">👥 VPN Clients</h2>
+    <button class="btn" onclick="showCreateModal()">+ Create New Client</button>
+</div>
+
+{% if clients %}
+<table>
+    <thead>
+        <tr>
+            <th>Client Name</th>
+            <th>Protocol</th>
+            <th>Created</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for client in clients %}
+        <tr>
+            <td><strong>{{ client.name }}</strong></td>
+            <td>
+                <span class="status-badge status-running">{{ client.protocol|upper }}</span>
+            </td>
+            <td>{{ client.created }}</td>
+            <td>
+                <button class="btn" style="padding: 6px 12px; font-size: 12px;" onclick="downloadConfig('{{ client.name }}')">
+                    📥 Download
+                </button>
+                <button class="btn" style="padding: 6px 12px; font-size: 12px; background: #3498db;" onclick="showQR('{{ client.name }}')">
+                    📱 QR Code
+                </button>
+                <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="deleteClient('{{ client.name }}')">
+                    🗑️ Delete
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div style="text-align: center; padding: 60px 20px; background: #f8f9fa; border-radius: 8px;">
+    <div style="font-size: 64px; margin-bottom: 20px;">📭</div>
+    <h3 style="color: #666; margin-bottom: 10px;">No clients yet</h3>
+    <p style="color: #999; margin-bottom: 20px;">Create your first VPN client to get started</p>
+    <button class="btn" onclick="showCreateModal()">Create First Client</button>
+</div>
+{% endif %}
+
+<!-- Create Client Modal -->
+<div id="createModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; padding: 20px;">
+    <div style="max-width: 500px; margin: 100px auto; background: white; border-radius: 10px; padding: 30px;">
+        <h3 style="color: #667eea; margin-bottom: 20px;">Create New Client</h3>
+        
+        <form id="createClientForm" onsubmit="createClient(event)">
+            <div>
+                <label for="clientName">Client Name</label>
+                <input type="text" id="clientName" name="name" placeholder="e.g., john-laptop" required>
+            </div>
+            
+            <div>
+                <label for="protocol">Protocol</label>
+                <select id="protocol" name="protocol">
+                    <option value="openvpn">OpenVPN (Recommended)</option>
+                    <option value="shadowsocks">Shadowsocks</option>
+                    <option value="v2ray">V2Ray</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="submit" class="btn" style="flex: 1;">Create</button>
+                <button type="button" class="btn" style="flex: 1; background: #95a5a6;" onclick="hideCreateModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- QR Code Modal -->
+<div id="qrModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; padding: 20px;">
+    <div style="max-width: 500px; margin: 100px auto; background: white; border-radius: 10px; padding: 30px; text-align: center;">
+        <h3 style="color: #667eea; margin-bottom: 20px;">QR Code</h3>
+        <div id="qrCodeContainer" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <img id="qrCodeImage" src="" alt="QR Code" style="max-width: 100%; height: auto;">
+        </div>
+        <p style="color: #666; font-size: 14px; margin-bottom: 20px;">Scan this QR code with your mobile VPN client</p>
+        <button class="btn" onclick="hideQRModal()">Close</button>
+    </div>
+</div>
+
+<script>
+function showCreateModal() {
+    document.getElementById('createModal').style.display = 'block';
+}
+
+function hideCreateModal() {
+    document.getElementById('createModal').style.display = 'none';
+    document.getElementById('createClientForm').reset();
+}
+
+function createClient(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const data = {
+        name: formData.get('name'),
+        protocol: formData.get('protocol')
+    };
+    
+    fetch('/api/client/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Client created successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to create client');
+    });
+}
+
+function downloadConfig(clientName) {
+    window.location.href = '/api/client/' + clientName + '/download';
+}
+
+function showQR(clientName) {
+    fetch('/api/client/' + clientName + '/qr')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('qrCodeImage').src = 'data:image/png;base64,' + data.qr_code;
+                document.getElementById('qrModal').style.display = 'block';
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to generate QR code');
+        });
+}
+
+function hideQRModal() {
+    document.getElementById('qrModal').style.display = 'none';
+}
+
+function deleteClient(clientName) {
+    if (!confirm('Are you sure you want to delete client "' + clientName + '"?')) {
+        return;
+    }
+    
+    fetch('/api/client/' + clientName + '/delete', {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Client deleted successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to delete client');
+    });
+}
+
+// Close modals on click outside
+window.onclick = function(event) {
+    const createModal = document.getElementById('createModal');
+    const qrModal = document.getElementById('qrModal');
+    
+    if (event.target === createModal) {
+        hideCreateModal();
+    }
+    if (event.target === qrModal) {
+        hideQRModal();
+    }
+}
+</script>
+{% endblock %}

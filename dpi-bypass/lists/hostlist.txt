@@ -1,0 +1,43 @@
+# Список доменов для обработки DPI bypass
+# Один домен на строку
+# Поддерживаются wildcard: *.example.com
+
+# Социальные сети
+facebook.com
+*.facebook.com
+instagram.com
+*.instagram.com
+twitter.com
+*.twitter.com
+youtube.com
+*.youtube.com
+*.googlevideo.com
+
+# Мессенджеры
+telegram.org
+*.telegram.org
+web.telegram.org
+discord.com
+*.discord.com
+*.discord.gg
+
+# VPN и прокси сервисы
+*.openvpn.net
+*.wireguard.com
+*.nordvpn.com
+*.expressvpn.com
+
+# Новостные сайты (пример)
+# Раскомментируйте если нужно
+# bbc.com
+# *.bbc.com
+# bbc.co.uk
+# *.bbc.co.uk
+
+# Streaming сервисы (пример)
+# netflix.com
+# *.netflix.com
+# hulu.com
+# *.hulu.com
+
+# Добавьте свои домены ниже:

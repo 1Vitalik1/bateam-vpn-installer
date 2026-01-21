@@ -40,7 +40,7 @@ RUN mkdir -p /opt/zapret/lists && \
 # Копирование конфигурационных файлов и скриптов
 COPY scripts/entrypoint.sh /usr/local/bin/
 COPY config/zapret.conf /opt/zapret/config/
-COPY lists/* /opt/zapret/lists/ 2>/dev/null || true
+COPY lists/ /opt/zapret/lists/ 
 
 # Установка прав
 RUN chmod +x /usr/local/bin/entrypoint.sh

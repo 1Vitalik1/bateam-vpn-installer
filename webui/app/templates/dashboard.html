@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - VPN Management{% endblock %}
+
+{% block content %}
+<h2 style="color: #667eea; margin-bottom: 30px;">📊 Dashboard</h2>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">
+    <div class="card" style="text-align: center;">
+        <div style="font-size: 48px; color: #667eea; margin-bottom: 10px;">{{ client_count }}</div>
+        <div style="color: #666; font-size: 14px;">Total Clients</div>
+    </div>
+    
+    <div class="card" style="text-align: center;">
+        <div style="font-size: 48px; color: #27ae60; margin-bottom: 10px;">
+            {% if services.openvpn == 'running' %}✓{% else %}✗{% endif %}
+        </div>
+        <div style="color: #666; font-size: 14px;">OpenVPN Status</div>
+    </div>
+    
+    <div class="card" style="text-align: center;">
+        <div style="font-size: 48px; color: #e67e22; margin-bottom: 10px;">
+            {% if services['dpi-bypass'] == 'running' %}✓{% else %}✗{% endif %}
+        </div>
+        <div style="color: #666; font-size: 14px;">DPI Bypass Status</div>
+    </div>
+    
+    <div class="card" style="text-align: center;">
+        <div style="font-size: 48px; color: #3498db; margin-bottom: 10px;">
+            {% if services.shadowsocks == 'running' %}✓{% else %}✗{% endif %}
+        </div>
+        <div style="color: #666; font-size: 14px;">Shadowsocks Status</div>
+    </div>
+</div>
+
+<h3 style="color: #667eea; margin-bottom: 20px;">Services Status</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th>Service</th>
+            <th>Status</th>
+            <th>Protocol</th>
+            <th>Port</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>OpenVPN</strong></td>
+            <td>
+                <span class="status-badge {% if services.openvpn == 'running' %}status-running{% else %}status-stopped{% endif %}">
+                    {{ services.openvpn|upper }}
+                </span>
+            </td>
+            <td>TCP/UDP</td>
+            <td>443, 1194</td>
+        </tr>
+        <tr>
+            <td><strong>DPI Bypass</strong></td>
+            <td>
+                <span class="status-badge {% if services['dpi-bypass'] == 'running' %}status-running{% else %}status-stopped{% endif %}">
+                    {{ services['dpi-bypass']|upper }}
+                </span>
+            </td>
+            <td>Zapret</td>
+            <td>-</td>
+        </tr>
+        <tr>
+            <td><strong>Stunnel</strong></td>
+            <td>
+                <span class="status-badge {% if services.stunnel == 'running' %}status-running{% else %}status-stopped{% endif %}">
+                    {{ services.stunnel|upper }}
+                </span>
+            </td>
+            <td>SSL Wrapper</td>
+            <td>4443, 8443</td>
+        </tr>
+        <tr>
+            <td><strong>DNSCrypt</strong></td>
+            <td>
+                <span class="status-badge {% if services.dnscrypt == 'running' %}status-running{% else %}status-stopped{% endif %}">
+                    {{ services.dnscrypt|upper }}
+                </span>
+            </td>
+            <td>DoH/DNSCrypt</td>
+            <td>5353</td>
+        </tr>
+        <tr>
+            <td><strong>Shadowsocks</strong></td>
+            <td>
+                <span class="status-badge {% if services.shadowsocks == 'running' %}status-running{% else %}status-stopped{% endif %}">
+                    {{ services.shadowsocks|upper }}
+                </span>
+            </td>
+            <td>SOCKS5</td>
+            <td>8388</td>
+        </tr>
+        <tr>
+            <td><strong>V2Ray</strong></td>
+            <td>
+                <span class="status-badge {% if services.v2ray == 'running' %}status-running{% else %}status-stopped{% endif %}">
+                    {{ services.v2ray|upper }}
+                </span>
+            </td>
+            <td>VMess/WS</td>
+            <td>10086, 10087</td>
+        </tr>
+    </tbody>
+</table>
+
+<div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea;">
+    <h4 style="color: #667eea; margin-bottom: 10px;">Quick Actions</h4>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="/clients" class="btn">Manage Clients</a>
+        <button class="btn" onclick="refreshStats()">Refresh Stats</button>
+        <a href="http://{{ request.host.split(':')[0] }}:3000" target="_blank" class="btn" style="background: #e67e22;">
+            Open Grafana
+        </a>
+    </div>
+</div>
+
+<script>
+function refreshStats() {
+    fetch('/api/stats')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Stats:', data);
+            location.reload();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to refresh stats');
+        });
+}
+
+// Auto-refresh every 30 seconds
+setInterval(refreshStats, 30000);
+</script>
+{% endblock %}
